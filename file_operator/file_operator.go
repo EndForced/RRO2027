@@ -160,8 +160,8 @@ func GetNsPat(n int) ([][]int, [][]int, error) {
 	return matrix, route, nil
 }
 
-func deserializeMatrix(data [48]byte) [8][8]int {
-	var matrix [8][8]int
+func deserializeMatrix(data [48]byte) [][]int {
+	var matrix [][]int
 	byteIdx := 0
 
 	for i := 0; i < 8; i++ {
