@@ -285,6 +285,7 @@ func RouteToMatrices(route [][]int) ([8][8]int, [8][8]int) {
 	}
 
 	globalStep := 0
+	_ = 1
 	for sliceIdx, slice := range route {
 		for i := 0; i < len(slice); i += 2 {
 			if i+1 >= len(slice) {
