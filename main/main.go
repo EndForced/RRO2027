@@ -37,7 +37,7 @@ func main() {
 		text := `Привет! Это генератор расстановок для категории будущие инженеры
 Сгенерировать: /gen
 Решить последнюю расстановку: /solve
-Расстановки соответствуют <a href="https://cdn.robofinist.ru/files/339318/filename/RRO-2026-%D0%91%D1%83%D0%B4%D1%83%D1%89%D0%B8%D0%B5%20%D0%B8%D0%BD%D0%B6%D0%B5%D0%BD%D0%B5%D1%80%D1%8B.pdf">регламенту категории</a> на 18.09.26`
+Расстановки соответствуют <a href="https://robofinist.ru/event/info/competitions/id/1523">регламенту категории</a> на 18.09.26`
 
 		// Обязательно передаем tele.ModeHTML, чтобы Telegram распарсил тег <a>
 		return c.Send(text, tele.ModeHTML)
