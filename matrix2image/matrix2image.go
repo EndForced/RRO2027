@@ -15,6 +15,10 @@ import (
 
 const ASSET_PATH = "matrix2image/assets/"
 
+func init() {
+	Cache_all()
+}
+
 func Visualize(matrix [][]uint8) (*image.RGBA, error) {
 	n := len(matrix[0])
 	matImage := image.NewRGBA(image.Rect(0, 0, 100*n, 100*n))

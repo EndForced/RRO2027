@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -33,8 +32,6 @@ func main() {
 	if botToken == "" {
 		log.Fatal("Переменная TELEGRAM_BOT_TOKEN не найдена в файле .env")
 	}
-
-	fmt.Print(botToken)
 
 	pref := tele.Settings{
 		Token:  botToken,

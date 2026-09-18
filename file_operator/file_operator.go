@@ -156,12 +156,15 @@ func GetNsPat(n int) ([][]int, [][]int, error) {
 	var routeData [96]byte
 	copy(routeData[:], buffer[48:])
 	route := deserializeRoute(routeData)
-
 	return matrix, route, nil
 }
 
 func deserializeMatrix(data [48]byte) [][]int {
-	var matrix [][]int
+	matrix := make([][]int, 8)
+	for i := range matrix {
+		matrix[i] = make([]int, 8)
+	}
+
 	byteIdx := 0
 
 	for i := 0; i < 8; i++ {
@@ -176,6 +179,7 @@ func deserializeMatrix(data [48]byte) [][]int {
 			c := ((n2 & 0b1111) << 2) | (n3 >> 6)
 			d := n3 & 0b111111
 
+			// Теперь эти строки гарантированно существуют и паники не будет
 			matrix[i][j] = int(a)
 			matrix[i][j+1] = int(b)
 			matrix[i][j+2] = int(c)
