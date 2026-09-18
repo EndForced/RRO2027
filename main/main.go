@@ -34,7 +34,13 @@ func main() {
 	}
 
 	b.Handle("/start", func(c tele.Context) error {
-		return c.Send("Бот успешно запущен в безопасном режиме!")
+		text := `Привет! Это генератор расстановок для категории будущие инженеры
+	Сгенерировать: /gen
+	Решить последнюю расстановку: /solve
+	Расстановки соответствуют <a href="https://robofinist.ru">регламенту категории</a> на 18.09.26`
+
+		// Обязательно передаем tele.ModeHTML, чтобы Telegram распарсил тег <a>
+		return c.Send(text, tele.ModeHTML)
 	})
 
 	log.Println("Бот успешно стартовал...")
