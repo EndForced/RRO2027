@@ -115,7 +115,7 @@ func cellWeightGetter(typ uint8) int {
 
 // TubeIDXGetter возвращает список ID клеток, являющихся трубами.
 func (_ *FieldMatrix) TubeIDXGetter() []int {
-	return []int{7, 8, 9, 10, 21, 22}
+	return []int{7, 8, 9, 10, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30}
 }
 
 // HolderIDXGetter возвращает список ID клеток, являющихся держателями труб.

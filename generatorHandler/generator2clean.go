@@ -1,35 +1,66 @@
 package generatorHandler
 
 import (
-	"FE2027/matrix2image"
 	"FE2027/matrixfactory"
 	"FE2027/matrixgenerator"
 	"FE2027/pathfind"
 	"FE2027/patsolve"
-	"image"
-	"image/png"
-	"os"
+	"math/rand/v2"
 )
+
+type InsertElement struct {
+	Pattern [][]uint8
+	Route   [][]int
+}
 
 // Returns a 2d slices with 100% legit patterns which follows all category rules
 // At least it is supposed to
-func GenerateFullyLegitPatterns(size int, number int) [][][]uint8 {
-	patterns := make([][][]uint8, 0, number)
-	matrixgenerator.CacheDiredPatterns()
+func GenerateFullyLegitPatterns(size int, number int) []InsertElement {
+	patterns := make([]InsertElement, 0, number)
 	for {
 		pats := matrixgenerator.CreateFullPats(size)
 		for _, pat := range pats {
 			fm, _ := matrixfactory.NewFieldMatrix(pat)
 			pf, _ := pathfind.NewMatrixGraph(fm)
-			img, _ := matrix2image.Visualize(pat)
-			saveToFile("preSolved.png", img)
 			routes, err := patsolve.Solve(fm, &pf)
 			if err == nil {
 				restoreTubesByRoute(pat, routes, size)
-				patterns = append(patterns, pat)
+				replaceTubesWithColoredVersion(pat)
+				element := InsertElement{
+					Pattern: pat,
+					Route:   routes,
+				}
+				patterns = append(patterns, element)
 				if len(patterns) == number {
 					return patterns
 				}
+			}
+		}
+	}
+}
+
+func replaceTubesWithColoredVersion(mat [][]uint8) {
+	redCount := rand.N(2) + 1
+	var tubes []int
+	if redCount == 1 {
+		tubes = append(tubes, 0, 0, 1)
+	}
+	if redCount == 2 {
+		tubes = append(tubes, 0, 1, 1)
+	}
+
+	rand.Shuffle(len(tubes), func(i, j int) {
+		tubes[i], tubes[j] = tubes[j], tubes[i]
+	})
+
+	mL := len(mat)
+	for x := 0; x < mL; x++ {
+		for y := 0; y < mL; y++ {
+			cell := mat[y][x]
+			rep := tubeReplacement(int(cell))
+			if len(rep) > 0 {
+				mat[y][x] = uint8(rep[tubes[0]])
+				tubes = tubes[1:]
 			}
 		}
 	}
@@ -79,11 +110,17 @@ func getTubeByFloorAnd2Cells(floor int, cells []int, size int) int {
 
 }
 
-func saveToFile(filename string, img image.Image) error {
-	file, err := os.Create(filename)
-	if err != nil {
-		return err
+func tubeReplacement(idx int) []int {
+	switch idx {
+	case 7:
+		return []int{23, 27}
+	case 8:
+		return []int{24, 28}
+	case 9:
+		return []int{25, 29}
+	case 10:
+		return []int{26, 30}
+
 	}
-	defer file.Close()
-	return png.Encode(file, img)
+	return make([]int, 0)
 }
