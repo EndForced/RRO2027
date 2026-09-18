@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"time"
@@ -55,6 +56,7 @@ func main() {
 	})
 
 	b.Handle("/gen", func(c tele.Context) error {
+		fmt.Print("Got gen request")
 		uId := c.Chat().ID
 		totalN, _ := file_operator.GetPatsNumber()
 		chosen := rand.N(totalN)
@@ -64,6 +66,8 @@ func main() {
 		cachedIdsMu.Unlock()
 
 		pat, _, _ := file_operator.GetNsPat(chosen)
+		fmt.Printf("Choosen pat: %v", pat)
+
 		img, _ := matrix2image.Visualize(toUint8(pat))
 
 		var buf bytes.Buffer
