@@ -25,7 +25,7 @@ func main() {
 Сгенерировать: /gen
 Решить последнюю расстановку: /solve
 
-Расстановки соответствуют <a href="https://robofinist.ru">регламенту категории</a> на 18.09.26`
+Расстановки соответствуют <a href="cdn.robofinist.ru/files/339318/filename/RRO-2026-Будущие инженеры.pdf">регламенту категории</a> на 18.09.26`
 
 		// Обязательно передаем tele.ModeHTML, чтобы Telegram распарсил тег <a>
 		return c.Send(text, tele.ModeHTML)
