@@ -68,8 +68,10 @@ func main() {
 		pat, _, _ := file_operator.GetNsPat(chosen)
 		fmt.Printf("Choosen pat: %v", pat)
 
-		img, _ := matrix2image.Visualize(toUint8(pat))
-
+		img, err := matrix2image.Visualize(toUint8(pat))
+		if err != nil {
+			fmt.Printf("Error while img gen %v", err)
+		}
 		var buf bytes.Buffer
 		if err := png.Encode(&buf, img); err != nil {
 			return err
