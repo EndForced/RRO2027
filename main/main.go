@@ -47,7 +47,6 @@ func main() {
 	}
 
 	log.Println("Бот успешно стартовал...")
-	b.Start()
 
 	b.Handle("/start", func(c tele.Context) error {
 		text := `Привет! Это генератор расстановок для категории будущие инженеры
@@ -102,6 +101,7 @@ func main() {
 		return c.Send(photo)
 
 	})
+	b.Start()
 }
 
 func toUint8(in [][]int) [][]uint8 {
