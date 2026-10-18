@@ -57,3 +57,58 @@ go test ./fastgen      # проверка 3000 полей на соответс�
 Он тратил ~0.6 с на поле. В 91% полей перед подставками были заняты перекрёстки, в 62% труба
 стояла вплотную к пандусу. Новый тратит ~0.1 мс на поле в одном потоке, а `main` запускает
 генерацию на всех ядрах.
+
+## Симулятор (`simulator`, `python/rrosim`)
+
+```
+go run ./simulator/cmd          # окно: http://127.0.0.1:8080
+pip install -e python           # или просто добавить python/ в sys.path
+python python/examples/explore.py
+```
+
+Сервер на Go использует ту же модель проездов, что и генератор (`matrixfactory` → `fastgen.Connects`).
+Поле берётся случайно из `data/pats.bin`, если файл пуст — генерируется `fastgen`.
+Окно — страница в браузере, Python-клиент общается с сервером по HTTP, зависимостей нет.
+
+```python
+from rrosim import Sim, IllegalCommand
+
+sim = Sim()
+sim.configure(sensor_cells=[(1, 0), (2, 0), (1, -1), (1, 1)],  # (вперёд, вправо) от робота
+              satellite=False,      # True — режим «со спутником»: поза и карта целиком
+              capacity=1,           # сколько труб везёт робот
+              step_delay_ms=150)    # пауза после команды, чтобы видеть движение
+
+@sim.on_iteration                   # кнопка «Новая итерация (скан + проезд)» в окне
+def step(sim):
+    obs = sim.scan()                # obs.scan — список Cell, obs.front — клетка перед роботом
+    sim.telemetry(front=obs.front.kind, carrying=obs.carrying)   # таблица в окне
+    try:
+        sim.forward()
+    except IllegalCommand as e:     # e.code: blocked, no_passage, out_of_field, ...
+        sim.log(f"нельзя: {e.message}")
+        sim.right()
+
+sim.run()
+```
+
+Команды: `forward`, `backward`, `left`, `right`, `pick` (труба прямо перед роботом, подъезд поперёк
+и с того же яруса), `place(color=None)` (зелёная подставка перед роботом). Нелегальная команда
+возвращает HTTP 400 и в Python бросает `IllegalCommand`. Состояние поля при этом не меняется.
+
+Клетка датчика (`Cell`): `kind` — out/floor/section/ramp/tube/stand/holder, `level` — ярус,
+`color` — цвет трубы, `ramp_up` — куда поднимается пандус относительно робота,
+`tube_axis` — across, если к трубе можно подъехать с текущим курсом. Сырой `id` и абсолютная
+поза приходят только в режиме спутника. В режиме хардкор у робота есть только бортовые датчики.
+
+В окне видно: баллы по п.8.3, секции после первого касания трубы и эталон, телеметрию клиента,
+журнал, последнюю ошибку. Можно показать эталонный маршрут. Робота можно водить стрелками
+(<kbd>P</kbd> — взять, <kbd>O</kbd> — положить).
+
+`python python/examples/follow_reference.py` проходит эталонный маршрут через API и
+проверяет всю цепочку: должно получиться 55 баллов и ровно эталонное число секций.
+
+HTTP API: `POST /api/cmd {"cmd": ...}`, `GET /api/scan`, `POST /api/config`, `POST /api/reset
+{"index"?, "same"?}`, `POST /api/telemetry {"data", "log", "clear"}`, `GET /api/events?timeout=`
+(long-poll кнопки), `GET /api/map` и `GET /api/debug/reference` (только со спутником),
+`GET /api/state` (полное состояние для окна).

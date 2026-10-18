@@ -233,3 +233,17 @@ func coloredTube(upper bool, approachVertical bool, red bool) uint8 {
 	}
 	return base
 }
+
+// Connects сообщает, есть ли проезд из клетки типа a в соседнюю клетку типа b в направлении dir
+// (matrixfactory.North/South/East/West). Используется симулятором.
+func Connects(a, b uint8, dir matrixfactory.DirectionType) bool {
+	if int(a) >= maxID || int(b) >= maxID {
+		return false
+	}
+	return conn[a][b][dir]
+}
+
+// CellWeight — сколько секций засчитывается за въезд в клетку (пандус — 3)
+func CellWeight(id uint8) int {
+	return cellWeight(id)
+}
