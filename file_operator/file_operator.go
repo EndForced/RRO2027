@@ -55,27 +55,18 @@ func Init() error {
 
 // Insert упаковывает матрицу и маршрут, после чего дописывает 144 байта в конец файла
 func Insert(matrix [][]uint8, route [][]int) error {
-	var serialized = make([]byte, 0, PatSizeBytes)
+	return InsertBatch([][][]uint8{matrix}, [][][]int{route})
+}
 
-	// 1. Сериализация матрицы (48 байт)
-	for i := 0; i < 8; i++ {
-		for j := 0; j < 8; j += 4 {
-			a := uint8(matrix[i][j])
-			b := uint8(matrix[i][j+1])
-			c := uint8(matrix[i][j+2])
-			d := uint8(matrix[i][j+3])
-
-			n1 := (a << 2) | (b >> 4)
-			n2 := (b << 4) | (c >> 2)
-			n3 := (c << 6) | d
-
-			serialized = append(serialized, n1, n2, n3)
-		}
+// InsertBatch дописывает сразу несколько записей, открывая файл один раз
+func InsertBatch(matrices [][][]uint8, routes [][][]int) error {
+	if len(matrices) != len(routes) {
+		return fmt.Errorf("количество матриц (%d) и маршрутов (%d) не совпадает", len(matrices), len(routes))
 	}
-
-	// 2. Сериализация маршрута (96 байт) через карту длин под-слайсов
-	routeBytes := serializeRoute(route)
-	serialized = append(serialized, routeBytes[:]...)
+	serialized := make([]byte, 0, PatSizeBytes*len(matrices))
+	for i := range matrices {
+		serialized = appendRecord(serialized, matrices[i], routes[i])
+	}
 
 	fp, err := get_file_path()
 	if err != nil {
@@ -94,6 +85,28 @@ func Insert(matrix [][]uint8, route [][]int) error {
 	}
 
 	return nil
+}
+
+func appendRecord(serialized []byte, matrix [][]uint8, route [][]int) []byte {
+	// 1. Сериализация матрицы (48 байт)
+	for i := 0; i < 8; i++ {
+		for j := 0; j < 8; j += 4 {
+			a := uint8(matrix[i][j])
+			b := uint8(matrix[i][j+1])
+			c := uint8(matrix[i][j+2])
+			d := uint8(matrix[i][j+3])
+
+			n1 := (a << 2) | (b >> 4)
+			n2 := (b << 4) | (c >> 2)
+			n3 := (c << 6) | d
+
+			serialized = append(serialized, n1, n2, n3)
+		}
+	}
+
+	// 2. Сериализация маршрута (96 байт) через карту длин под-слайсов
+	routeBytes := serializeRoute(route)
+	return append(serialized, routeBytes[:]...)
 }
 
 // GetPatsNumber возвращает количество записей в файле на основе его размера
