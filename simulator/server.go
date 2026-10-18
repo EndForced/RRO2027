@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image/png"
 	"io/fs"
 	"math/rand/v2"
 	"net/http"
@@ -126,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("POST /api/iterate", s.handleIterate)
 	mux.HandleFunc("GET /api/state", s.handleState)
+	mux.HandleFunc("GET /api/camera", s.handleCamera)
 	return mux
 }
 
@@ -396,4 +398,53 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		"last_error":       s.lastError,
 		"client_connected": time.Since(s.lastPoll) < 2*time.Second || time.Now().Before(s.lastPoll),
 	})
+}
+
+// handleCamera рендерит кадр камеры робота (view=robot) или «спутника» (view=satellite).
+// format=png (по умолчанию) или raw — RGB-байты построчно, размеры в X-Width/X-Height.
+func (s *Server) handleCamera(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	view := q.Get("view")
+	s.mu.Lock()
+	cfg := s.cfg
+	if view == "satellite" && !cfg.Satellite && q.Get("source") != "ui" {
+		s.mu.Unlock()
+		badRequest(w, "satellite_disabled", "камера «спутника» доступна только при satellite=true")
+		return
+	}
+	sc := s.world.buildScene(cfg.Scene, cfg.Lighting)
+	cam := s.world.robotCamera(cfg.Camera)
+	s.mu.Unlock()
+
+	camCfg := cfg.Camera
+	switch view {
+	case "", "robot":
+	case "satellite":
+		cam = satelliteCamera()
+		side := 480
+		if v, err := strconv.Atoi(q.Get("size")); err == nil && v >= 64 && v <= 1920 {
+			side = v
+		}
+		camCfg.Width, camCfg.Height, camCfg.K1 = side, side, 0
+	default:
+		badRequest(w, "bad_view", "view: robot или satellite")
+		return
+	}
+	img := sc.render(cam, camCfg, rand.Uint64())
+
+	w.Header().Set("X-Width", strconv.Itoa(camCfg.Width))
+	w.Header().Set("X-Height", strconv.Itoa(camCfg.Height))
+	w.Header().Set("Cache-Control", "no-store")
+	if q.Get("format") == "raw" {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		buf := make([]byte, 0, camCfg.Width*camCfg.Height*3)
+		for i := 0; i < len(img.Pix); i += 4 {
+			buf = append(buf, img.Pix[i], img.Pix[i+1], img.Pix[i+2])
+		}
+		w.Write(buf)
+		return
+	}
+	w.Header().Set("Content-Type", "image/png")
+	enc := png.Encoder{CompressionLevel: png.BestSpeed}
+	enc.Encode(w, img)
 }

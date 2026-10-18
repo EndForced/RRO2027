@@ -107,12 +107,14 @@ class Sim:
 
     # --- транспорт ---
 
-    def _request(self, method: str, path: str, body: Any = None, command: bool = False) -> Any:
+    def _request(self, method: str, path: str, body: Any = None, command: bool = False, raw: bool = False) -> Any:
         data = None if body is None else json.dumps(body).encode()
         req = urllib.request.Request(self.url + path, data=data, method=method,
                                      headers={"Content-Type": "application/json"})
         try:
             with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                if raw:
+                    return resp.read(), resp.headers
                 return json.loads(resp.read())
         except urllib.error.HTTPError as e:
             try:
@@ -129,9 +131,26 @@ class Sim:
 
     # --- настройки и поле ---
 
-    def configure(self, sensor_cells=None, satellite=None, capacity=None, step_delay_ms=None) -> dict:
-        """Меняет только переданные настройки. sensor_cells — список (вперёд, вправо)."""
-        body = {}
+    def configure(self, sensor_cells=None, satellite=None, capacity=None, step_delay_ms=None,
+                  camera: Optional[dict] = None, lighting: Optional[dict] = None,
+                  scene: Optional[dict] = None) -> dict:
+        """Меняет только переданные настройки. sensor_cells — список (вперёд, вправо).
+
+        camera:   x, y, z (мм от центра клетки: вперёд, вправо, вверх), pitch (к плоскости поля,
+                  <0 — вниз), yaw (+ — вправо), roll, fov (горизонтальный, градусы),
+                  width, height, aa (сглаживание 1..4), noise (0..1), k1 (дисторсия)
+        lighting: ambient, shadows, specular, lights=[{"x", "y", "z", "intensity"}] — мм в координатах
+                  поля: x на восток, y на юг, z вверх, (0,0) — центр северо-западного перекрёстка,
+                  перекрёсток (col,row) = (280·col, 280·row)
+        scene:    stand_height, holder_height — высота низа трубы над поверхностью, мм
+        """
+        body: dict = {}
+        if camera is not None:
+            body["camera"] = camera
+        if lighting is not None:
+            body["lighting"] = lighting
+        if scene is not None:
+            body["scene"] = scene
         if sensor_cells is not None:
             body["sensor_cells"] = [list(c) for c in sensor_cells]
         if satellite is not None:
@@ -176,6 +195,24 @@ class Sim:
     def place(self, color: Optional[str] = None) -> Observation:
         """Положить трубу на зелёную подставку перед роботом (по умолчанию — последнюю взятую)."""
         return self._cmd("place", **({"color": color} if color else {}))
+
+    def camera(self, view: str = "robot", size: Optional[int] = None) -> bytes:
+        """PNG-кадр камеры робота (view="robot") или «спутника» (view="satellite", нужен satellite=True)."""
+        path = f"/api/camera?view={view}" + (f"&size={size}" if size else "")
+        return self._request("GET", path, raw=True)[0]
+
+    def camera_array(self, view: str = "robot", size: Optional[int] = None):
+        """Кадр как numpy-массив H×W×3 (uint8, RGB). Требует numpy."""
+        import numpy as np
+
+        path = f"/api/camera?view={view}&format=raw" + (f"&size={size}" if size else "")
+        data, headers = self._request("GET", path, raw=True)
+        h, w = int(headers["X-Height"]), int(headers["X-Width"])
+        return np.frombuffer(data, dtype=np.uint8).reshape(h, w, 3)
+
+    def save_camera(self, path: str, view: str = "robot", size: Optional[int] = None) -> None:
+        with open(path, "wb") as f:
+            f.write(self.camera(view, size))
 
     def map(self) -> dict:
         """Карта целиком — только в режиме спутника (configure(satellite=True))."""

@@ -6,6 +6,7 @@ import (
 	"FE2027/fastgen"
 	"FE2027/matrixfactory"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -39,6 +40,10 @@ type Config struct {
 	Capacity int `json:"capacity"`
 	// Задержка после каждой команды, чтобы движение было видно в окне симулятора
 	StepDelayMs int `json:"step_delay_ms"`
+
+	Camera   CameraConfig   `json:"camera"`
+	Lighting LightingConfig `json:"lighting"`
+	Scene    SceneConfig    `json:"scene"`
 }
 
 func DefaultConfig() Config {
@@ -47,6 +52,9 @@ func DefaultConfig() Config {
 		Satellite:   false,
 		Capacity:    1,
 		StepDelayMs: 150,
+		Camera:      DefaultCamera(),
+		Lighting:    DefaultLighting(),
+		Scene:       DefaultScene(),
 	}
 }
 
@@ -64,6 +72,35 @@ func (c Config) validate() error {
 	}
 	if c.StepDelayMs < 0 || c.StepDelayMs > 5000 {
 		return fmt.Errorf("step_delay_ms: допустимо 0..5000")
+	}
+	cam := c.Camera
+	switch {
+	case cam.FOV < 5 || cam.FOV > 170:
+		return fmt.Errorf("camera.fov: допустимо 5..170 градусов")
+	case cam.Width < 8 || cam.Width > 1920 || cam.Height < 8 || cam.Height > 1920:
+		return fmt.Errorf("camera.width/height: допустимо 8..1920")
+	case cam.AA < 1 || cam.AA > 4:
+		return fmt.Errorf("camera.aa: допустимо 1..4")
+	case cam.Pitch < -90 || cam.Pitch > 90:
+		return fmt.Errorf("camera.pitch: допустимо -90..90")
+	case cam.Noise < 0 || cam.Noise > 1:
+		return fmt.Errorf("camera.noise: допустимо 0..1")
+	case math.Abs(cam.K1) > 1:
+		return fmt.Errorf("camera.k1: допустимо -1..1")
+	case math.Abs(cam.X) > 500 || math.Abs(cam.Y) > 500 || cam.Z < 0 || cam.Z > 1000:
+		return fmt.Errorf("camera.x/y: ±500 мм, camera.z: 0..1000 мм")
+	}
+	l := c.Lighting
+	if l.Ambient < 0 || l.Ambient > 2 || l.Specular < 0 || l.Specular > 5 || len(l.Lights) > 8 {
+		return fmt.Errorf("lighting: ambient 0..2, specular 0..5, не больше 8 источников")
+	}
+	for _, li := range l.Lights {
+		if li.Intensity < 0 || li.Intensity > 5 || li.Z <= 0 {
+			return fmt.Errorf("lighting.lights: intensity 0..5, z > 0 (источник над полем)")
+		}
+	}
+	if c.Scene.StandHeight < 10 || c.Scene.StandHeight > 300 || c.Scene.HolderHeight < 10 || c.Scene.HolderHeight > 300 {
+		return fmt.Errorf("scene: высоты подставок 10..300 мм")
 	}
 	return nil
 }
@@ -84,6 +121,7 @@ func illegal(code, format string, args ...any) *CommandError {
 type World struct {
 	base       [N * N]uint8  // клетки без робота: трубы 23-30, пустые белые подставки 21/22, зелёные 17-20
 	holderTube [N * N]string // цвет трубы, лежащей на зелёной подставке
+	standAxisX [N * N]bool   // ориентация белой подставки, с которой сняли трубу (для рендера)
 	holders    [3]int        // зелёные подставки по порядку вдоль границы
 
 	pos     int
@@ -242,6 +280,7 @@ func (w *World) Pick(capacity int) error {
 		return illegal("capacity", "робот уже везёт %d труб(ы), capacity=%d", len(w.carrying), capacity)
 	}
 	w.carrying = append(w.carrying, colorOf(w.base[t]))
+	w.standAxisX[t] = (w.base[t]-23)%2 == 0
 	// Труба снята, подставка осталась: клетка по-прежнему занята (ID 21/22 — пустая подставка)
 	if w.base[t] == 25 || w.base[t] == 26 || w.base[t] == 29 || w.base[t] == 30 {
 		w.base[t] = 22

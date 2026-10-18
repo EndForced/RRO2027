@@ -46,6 +46,15 @@
       </div>
       <p class="muted" style="margin:8px 0 0"><span class="dot" id="conn"></span> <span id="connText"></span></p>
     </section>
+    <section>
+      <h2>Камера</h2>
+      <div class="row" style="margin-bottom:8px">
+        <label><input type="radio" name="view" value="off" checked> выкл</label>
+        <label><input type="radio" name="view" value="robot"> робот</label>
+        <label><input type="radio" name="view" value="satellite"> спутник</label>
+      </div>
+      <img id="cam" alt="" style="display:none;max-width:100%;border-radius:4px">
+    </section>
     <section><h2>Заезд</h2><table id="run"></table></section>
     <section><h2>Телеметрия клиента</h2><table id="tele"></table></section>
     <section><h2>Журнал</h2><div id="logs"></div></section>
@@ -132,6 +141,8 @@ function render() {
     ['Баллы', `${sc.total}  (снятие ${sc.pick_points}, установка ${sc.place_points}, бонус ${sc.bonus}, логистика ${sc.logistics})`],
     ['Режим', s.config.satellite ? 'со спутником' : 'хардкор (SLAM)'],
     ['Датчики', JSON.stringify(s.config.sensor_cells)],
+    ['Камера', (c => `x=${c.x} y=${c.y} z=${c.z} pitch=${c.pitch} yaw=${c.yaw} fov=${c.fov} ${c.width}×${c.height}`)(s.config.camera)],
+    ['Свет', s.config.lighting.lights.map(l => `(${l.x}, ${l.y}, ${l.z})×${l.intensity}`).join(' ') || '—'],
   ]);
   rows(document.getElementById('tele'), s.telemetry.map(t => [t.key, t.value]));
   const logs = document.getElementById('logs');
@@ -143,8 +154,26 @@ function render() {
   document.getElementById('connText').textContent = s.client_connected ? 'Python-клиент ждёт итерацию' : 'Python-клиент не подключён (sim.run())';
 }
 
+// Кадр перерисовывается, только когда что-то поменялось (рендер идёт на сервере)
+let camKey = '', camBusy = false;
+function updateCamera() {
+  const view = document.querySelector('input[name=view]:checked').value;
+  const el = document.getElementById('cam');
+  el.style.display = view === 'off' ? 'none' : 'block';
+  if (view === 'off' || !state || camBusy) return;
+  const key = JSON.stringify([view, state.pose, state.moves, state.config, state.pattern_index, state.route && state.route[0]]);
+  if (key === camKey) return;
+  camKey = key; camBusy = true;
+  const next = new Image();
+  next.onload = next.onerror = () => { el.src = next.src; camBusy = false; };
+  next.src = `/api/camera?view=${view}&source=ui&t=${Date.now()}`;
+}
+document.querySelectorAll('input[name=view]').forEach(r => r.onchange = () => { camKey = ''; updateCamera(); });
+const hashView = new URLSearchParams(location.hash.slice(1)).get('camera');
+if (hashView) document.querySelectorAll('input[name=view]').forEach(r => r.checked = r.value === hashView);
+
 async function poll() {
-  try { state = await api('/api/state'); render(); } catch (e) { console.error(e); }
+  try { state = await api('/api/state'); render(); updateCamera(); } catch (e) { console.error(e); }
   setTimeout(poll, 200);
 }
 
