@@ -105,3 +105,24 @@ func TestAccelMatchesBruteForce(t *testing.T) {
 }
 
 func newTestRand() *rand.Rand { return rand.New(rand.NewPCG(1, 2)) }
+
+// Основание каждой зелёной подставки касается края баннера (красной границы)
+func TestHoldersTouchBorder(t *testing.T) {
+	for seed := uint64(0); seed < 50; seed++ {
+		w := newTestWorld(t, seed)
+		sc := w.buildScene(DefaultScene(), DefaultLighting())
+		touching := 0
+		for _, o := range sc.objects {
+			if o.surf != surfGreen || o.maxB.z-o.minB.z > 5 { // только основания
+				continue
+			}
+			if math.Abs(o.minB.x-fieldLow) < 1e-9 || math.Abs(o.maxB.x-fieldHigh) < 1e-9 ||
+				math.Abs(o.minB.y-fieldLow) < 1e-9 || math.Abs(o.maxB.y-fieldHigh) < 1e-9 {
+				touching++
+			}
+		}
+		if touching != 6 { // 3 подставки × 2 опоры
+			t.Fatalf("seed %d: у границы %d оснований из 6", seed, touching)
+		}
+	}
+}

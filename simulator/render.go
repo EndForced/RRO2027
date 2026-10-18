@@ -209,6 +209,21 @@ func stand(cx, cy, base, h float64, axisX bool, s surface) []*object {
 	return res
 }
 
+const holderBaseHalf = 35.0 // основание зелёной подставки 70×70 (п.15.4)
+
+// holderCenter — центр зелёной подставки: на чёрной линии перекрёстка, вплотную к границе поля
+func holderCenter(id uint8, cx, cy float64) (float64, float64) {
+	switch id {
+	case 17: // северная граница
+		return cx, fieldLow + holderBaseHalf
+	case 18: // южная
+		return cx, fieldHigh - holderBaseHalf
+	case 19: // восточная
+		return fieldHigh - holderBaseHalf, cy
+	}
+	return fieldLow + holderBaseHalf, cy // западная
+}
+
 // --- сцена ---
 
 // Ускоряющая сетка: объекты раскладываются по клеткам 280×280 (с запасом по клетке
@@ -280,15 +295,17 @@ func (w *World) buildScene(sc SceneConfig, light LightingConfig) *scene {
 				s.add(tube(vec3{cx, cy, surfaceZ + sc.StandHeight + tubeRadius}, axisX, col))
 			}
 		case isHolder(id):
-			// труба на зелёной подставке лежит вдоль границы поля
+			// Подставка стоит поперёк чёрной линии и примыкает к красной границе (п.2.3):
+			// основание 70 мм касается края баннера, труба лежит вдоль границы
 			axisX := id == 17 || id == 18
-			s.add(stand(cx, cy, 0, sc.HolderHeight, axisX, surfGreen)...)
+			hx, hy := holderCenter(id, cx, cy)
+			s.add(stand(hx, hy, 0, sc.HolderHeight, axisX, surfGreen)...)
 			if col := w.holderTube[c]; col != "" {
 				surf := surfTubeBlue
 				if col == "red" {
 					surf = surfTubeRed
 				}
-				s.add(tube(vec3{cx, cy, sc.HolderHeight + tubeRadius}, axisX, surf))
+				s.add(tube(vec3{hx, hy, sc.HolderHeight + tubeRadius}, axisX, surf))
 			}
 		}
 	}
